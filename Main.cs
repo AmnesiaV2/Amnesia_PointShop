@@ -1,0 +1,80 @@
+﻿using Life;
+using ModKit.Helper;
+using ModKit.Interfaces;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Amnesia_UiShop;
+using _menu = AAMenu.Menu;
+using DShop.Data;
+using Life.Network;
+using Amnesia_Couleurs.Utils;
+using Life.CheckpointSystem;
+using Life.DB;
+using Mirror;
+using UnityEngine;
+
+namespace Main
+{
+    public class Main : ModKit.ModKit
+    {
+        public Main(IGameAPI api) : base(api)
+        {
+            PluginInformations = new PluginInformations(AssemblyHelper.GetName(), "1.0.0", "Amnesia • PointShop");
+        }
+
+        public override void OnPluginInit()
+        {
+            base.OnPluginInit();
+            ModKit.Internal.Logger.LogSuccess($"{PluginInformations.SourceName} v{PluginInformations.Version}", "initialisé");
+
+            Orm.RegisterTable<DataShop_Items>();
+            Orm.RegisterTable<DataShop_Logs>();
+            Orm.RegisterTable<DataShop_Pattern>();
+            Orm.RegisterTable<DataShop_Points>();
+
+        }
+
+
+
+        public override void OnPlayerSpawnCharacter(Player player, NetworkConnection conn, Characters character)
+        {
+            base.OnPlayerSpawnCharacter(player, conn, character);
+            if (player != null)
+            {
+                CreateCheckpointsForPlayer(player);
+            }
+            return;
+        }
+
+        private async void CreateCheckpointsForPlayer(Player player)
+        {
+            List<DataShop_Points> QueryAll = await DataShop_Points.Query(ui => true);
+
+            foreach (var all in QueryAll)
+            {
+                DataShop_Points DataPoints = new DataShop_Points();
+
+                if (all == null || (all.Position.x == 0 && all.Position.y == 0 && all.Position.z == 0))
+                {
+                    Debug.LogWarning("Checkpoint invalide trouvé.");
+                    continue;
+                }
+
+                Vector3 checkpointPosition = new Vector3(all.Position.x, all.Position.y, all.Position.z);
+
+                NCheckpoint point = new NCheckpoint(player.netId, checkpointPosition, ui => UiShop.MenuPrincipal(player, all));
+
+                if (point != null)
+                {
+                    player.CreateCheckpoint(point);
+                }
+                else
+                {
+                    Debug.LogError("Erreur : Impossible de créer le checkpoint.");
+                }
+            }
+        }
+
+    }
+}
